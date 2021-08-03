@@ -64,13 +64,29 @@ func main() {
 		for tagsList := dh.GetImages(dhOrg, dhRepo, pageNumber, timeBefore); len(tagsList.Next) > 0; pageNumber++ {
 			fmt.Println("Checking page:", pageNumber)
 			var digests []string
+			var ignoreList []*dockerhub.IgnoreWarnings
 			for _, tag := range tagsList.Results {
 				if tag.LastPulled.Unix() < timeBefore.Unix() {
 					fmt.Println("Removing " + dhOrg + "/" + dhRepo + ":" + tag.Digest + " | " + tag.LastPulled.Format(time.RFC3339) + " | " + tag.LastPushed.Format(time.RFC3339))
+
 					digests = append(digests, tag.Digest)
+
+					for _, t := range tag.Tags {
+						if t.IsCurrent == true {
+							ignoreList = append(ignoreList, &dockerhub.IgnoreWarnings{
+								Repository: dhRepo,
+								Digest:     tag.Digest,
+								Warning:    "current_tag",
+								Tags:       []string{t.Tag},
+							})
+						}
+					}
+
 				}
 			}
-			dh.DeleteImages(dhOrg, dhRepo, digests, timeBefore, dryRun)
+			deletedImages := dh.DeleteImages(dhOrg, dhRepo, digests, timeBefore, dryRun, ignoreList)
+			fmt.Printf("Summary of deleted images ➡ manifest_deletes: %d, manifest_errors: %d, tag_deletes: %d, tag_errors: %d \n",
+				deletedImages.Metrics.ManifestDeletes, deletedImages.Metrics.ManifestErrors, deletedImages.Metrics.TagDeletes, deletedImages.Metrics.TagDeletes)
 
 			tagsList = dh.GetImages(dhOrg, dhRepo, pageNumber, timeBefore)
 		}

@@ -3,7 +3,6 @@ package dockerhub
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -49,7 +48,7 @@ func (client *client) authorize(auth Auth) {
 	client.token = token.Token
 }
 
-func (client *client) DeleteImages(organization string, repository string, digests []string, timeBefore time.Time, dryRun bool) {
+func (client *client) DeleteImages(organization string, repository string, digests []string, timeBefore time.Time, dryRun bool, ignoreWarnings []*IgnoreWarnings) (deletedImages *DeletedImagesResponse) {
 	var manifests []*Manifest
 
 	for _, d := range digests {
@@ -60,17 +59,16 @@ func (client *client) DeleteImages(organization string, repository string, diges
 	}
 
 	post := &DeleteImagesRequest{
-		DryRun:     dryRun,
-		ActiveFrom: timeBefore,
-		Manifests:  manifests,
+		DryRun:         dryRun,
+		ActiveFrom:     timeBefore,
+		Manifests:      manifests,
+		IgnoreWarnings: ignoreWarnings,
 	}
 
 	body, err := json.Marshal(post)
 	if err != nil {
 		panic(err)
 	}
-
-	fmt.Println(string(body))
 
 	req, err := http.NewRequest("POST", "https://hub.docker.com/v2/namespaces/"+organization+"/delete-images", bytes.NewReader(body))
 	if err != nil {
@@ -87,18 +85,23 @@ func (client *client) DeleteImages(organization string, repository string, diges
 
 	rsp, _ := ioutil.ReadAll(resp.Body)
 
-	fmt.Println(string(rsp))
+	err = json.Unmarshal(rsp, &deletedImages)
+	if err != nil {
+		panic(string(rsp))
+	}
 
 	if resp.StatusCode != http.StatusOK {
 		panic(string(rsp))
 	}
+
+	return deletedImages
 }
 
 func (client *client) GetImages(organization string, repository string, page int, timeBefore time.Time) ImageList {
 	pageString := strconv.Itoa(page)
 	timeFrom := url.QueryEscape(timeBefore.Format(time.RFC3339))
 
-	req, err := http.NewRequest("GET", "https://hub.docker.com/v2/namespaces/"+organization+"/repositories/"+repository+"/images?page="+pageString+"&page_size=10&currently_tagged=false&ordering=last_activity&status=inactive&active_from="+timeFrom, nil)
+	req, err := http.NewRequest("GET", "https://hub.docker.com/v2/namespaces/"+organization+"/repositories/"+repository+"/images?page="+pageString+"&page_size=10&ordering=last_activity&status=inactive&active_from="+timeFrom, nil)
 	if err != nil {
 		panic(err)
 	}
