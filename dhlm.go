@@ -20,20 +20,25 @@ func main() {
 	var dhOrg string
 	var dhRepo string
 	var days string
+	var dryRun bool
 
-	app.Flags = []cli.Flag {
+	app.Flags = []cli.Flag{
 		cli.StringFlag{
-			Name: "username",
+			Name:        "username",
 			Destination: &dhUsername,
 		},
 		cli.StringFlag{
-			Name: "password",
+			Name:        "password",
 			Destination: &dhPassword,
 		},
 		cli.StringFlag{
-			Name: "days",
+			Name:        "days",
 			Destination: &days,
-			Value: "30",
+			Value:       "30",
+		},
+		cli.BoolFlag{
+			Name:        "dry-run",
+			Destination: &dryRun,
 		},
 	}
 
@@ -47,25 +52,43 @@ func main() {
 			return nil
 		}
 
-		dh := dockerhub.NewClient(dockerhub.Auth {
+		dh := dockerhub.NewClient(dockerhub.Auth{
 			Username: dhUsername,
 			Password: dhPassword,
 		})
 
 		daysInt, _ := strconv.Atoi(days)
-		timeBefore := time.Now().Add(-time.Hour*24*time.Duration(daysInt))
+		timeBefore := time.Now().Add(-time.Hour * 24 * time.Duration(daysInt))
 
 		pageNumber := 1
-		for tagsList := dh.GetTags(dhOrg, dhRepo, pageNumber); len(tagsList.Next) > 0; pageNumber++ {
+		for tagsList := dh.GetImages(dhOrg, dhRepo, pageNumber, timeBefore); len(tagsList.Next) > 0; pageNumber++ {
 			fmt.Println("Checking page:", pageNumber)
+			var digests []string
+			var ignoreList []*dockerhub.IgnoreWarnings
 			for _, tag := range tagsList.Results {
-				if tag.LastUpdated.Unix() < timeBefore.Unix() {
-					fmt.Println("Removing "+dhOrg+"/"+dhRepo+":"+tag.Name+" | "+tag.LastUpdated.Format(time.RFC822))
-					dh.DeleteTag(dhOrg, dhRepo, tag.Name)
+				if tag.LastPulled.Unix() < timeBefore.Unix() {
+					fmt.Println("Removing " + dhOrg + "/" + dhRepo + ":" + tag.Digest + " | " + tag.LastPulled.Format(time.RFC3339) + " | " + tag.LastPushed.Format(time.RFC3339))
+
+					digests = append(digests, tag.Digest)
+
+					for _, t := range tag.Tags {
+						if t.IsCurrent == true {
+							ignoreList = append(ignoreList, &dockerhub.IgnoreWarnings{
+								Repository: dhRepo,
+								Digest:     tag.Digest,
+								Warning:    "current_tag",
+								Tags:       []string{t.Tag},
+							})
+						}
+					}
+
 				}
 			}
+			deletedImages := dh.DeleteImages(dhOrg, dhRepo, digests, timeBefore, dryRun, ignoreList)
+			fmt.Printf("Summary of deleted images ➡ manifest_deletes: %d, manifest_errors: %d, tag_deletes: %d, tag_errors: %d \n",
+				deletedImages.Metrics.ManifestDeletes, deletedImages.Metrics.ManifestErrors, deletedImages.Metrics.TagDeletes, deletedImages.Metrics.TagDeletes)
 
-			tagsList = dh.GetTags(dhOrg, dhRepo, pageNumber)
+			tagsList = dh.GetImages(dhOrg, dhRepo, pageNumber, timeBefore)
 		}
 
 		return nil
