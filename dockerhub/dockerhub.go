@@ -14,6 +14,8 @@ type client struct {
 	token string
 }
 
+const pageSize = "10"
+
 func NewClient(auth Auth) *client {
 	c := &client{}
 	c.authorize(auth)
@@ -97,11 +99,11 @@ func (client *client) DeleteImages(organization string, repository string, diges
 	return deletedImages
 }
 
-func (client *client) GetImages(organization string, repository string, page int, timeBefore time.Time) ImageList {
+func (client *client) GetImages(organization string, repository string, page int, timeBefore time.Time) (imageList *ImageList) {
 	pageString := strconv.Itoa(page)
 	timeFrom := url.QueryEscape(timeBefore.Format(time.RFC3339))
 
-	req, err := http.NewRequest("GET", "https://hub.docker.com/v2/namespaces/"+organization+"/repositories/"+repository+"/images?page="+pageString+"&page_size=10&ordering=last_activity&status=inactive&active_from="+timeFrom, nil)
+	req, err := http.NewRequest("GET", "https://hub.docker.com/v2/namespaces/"+organization+"/repositories/"+repository+"/images?page="+pageString+"&page_size="+pageSize+"&ordering=last_activity&status=inactive&active_from="+timeFrom, nil)
 	if err != nil {
 		panic(err)
 	}
@@ -119,8 +121,7 @@ func (client *client) GetImages(organization string, repository string, page int
 		panic(string(rsp))
 	}
 
-	var tagsList ImageList
-	json.Unmarshal(rsp, &tagsList)
+	json.Unmarshal(rsp, &imageList)
 
-	return tagsList
+	return imageList
 }

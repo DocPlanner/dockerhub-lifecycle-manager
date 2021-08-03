@@ -10,6 +10,12 @@ type Image struct {
 	Tags       []*Tags   `json:"tags"`
 }
 
+type ImageList struct {
+	Count   int     `json:"count"`
+	Next    string  `json:"next"`
+	Results []Image `json:"results"`
+}
+
 type DeleteImagesRequest struct {
 	DryRun         bool              `json:"dry_run"`
 	ActiveFrom     time.Time         `json:"active_from,omitempty"`
@@ -42,4 +48,8 @@ type Metrics struct {
 	ManifestErrors  int `json:"manifest_errors"`
 	TagDeletes      int `json:"tag_deletes"`
 	TagErrors       int `json:"tag_errors"`
+}
+
+type Token struct {
+	Token string `json:"token"`
 }
