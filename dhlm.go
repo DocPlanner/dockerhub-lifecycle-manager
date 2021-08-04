@@ -70,18 +70,20 @@ func main() {
 					fmt.Println("Removing " + dhOrg + "/" + dhRepo + ":" + tag.Digest + " | " + tag.LastPulled.Format(time.RFC3339) + " | " + tag.LastPushed.Format(time.RFC3339))
 
 					digests = append(digests, tag.Digest)
+					var ignTags []string
 
 					for _, t := range tag.Tags {
 						if t.IsCurrent == true {
-							ignoreList = append(ignoreList, &dockerhub.IgnoreWarnings{
-								Repository: dhRepo,
-								Digest:     tag.Digest,
-								Warning:    "current_tag",
-								Tags:       []string{t.Tag},
-							})
+							ignTags = append(ignTags, t.Tag)
 						}
 					}
 
+					ignoreList = append(ignoreList, &dockerhub.IgnoreWarnings{
+						Repository: dhRepo,
+						Digest:     tag.Digest,
+						Warning:    "current_tag",
+						Tags:       ignTags,
+					})
 				}
 			}
 			deletedImages := dh.DeleteImages(dhOrg, dhRepo, digests, timeBefore, dryRun, ignoreList)
