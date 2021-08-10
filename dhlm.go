@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"github.com/urfave/cli"
 	"os"
-	"strconv"
 	"time"
 )
 
@@ -19,8 +18,9 @@ func main() {
 	var dhPassword string
 	var dhOrg string
 	var dhRepo string
-	var days string
+	var days int
 	var dryRun bool
+	var pageSize int
 
 	app.Flags = []cli.Flag{
 		cli.StringFlag{
@@ -31,10 +31,15 @@ func main() {
 			Name:        "password",
 			Destination: &dhPassword,
 		},
-		cli.StringFlag{
+		cli.IntFlag{
 			Name:        "days",
 			Destination: &days,
-			Value:       "30",
+			Value:       30,
+		},
+		cli.IntFlag{
+			Name:        "pageSize",
+			Destination: &pageSize,
+			Value:       10,
 		},
 		cli.BoolFlag{
 			Name:        "dry-run",
@@ -57,11 +62,10 @@ func main() {
 			Password: dhPassword,
 		})
 
-		daysInt, _ := strconv.Atoi(days)
-		timeBefore := time.Now().Add(-time.Hour * 24 * time.Duration(daysInt))
+		timeBefore := time.Now().Add(-time.Hour * 24 * time.Duration(days))
 
 		pageNumber := 1
-		for tagsList := dh.GetImages(dhOrg, dhRepo, pageNumber, timeBefore); len(tagsList.Next) > 0; pageNumber++ {
+		for tagsList := dh.GetImages(dhOrg, dhRepo, pageNumber, timeBefore, pageSize); len(tagsList.Next) > 0; pageNumber++ {
 			fmt.Println("Checking page:", pageNumber)
 			var digests []string
 			var ignoreList []*dockerhub.IgnoreWarnings
@@ -90,7 +94,7 @@ func main() {
 			fmt.Printf("Summary of deleted images ➡ manifest_deletes: %d, manifest_errors: %d, tag_deletes: %d, tag_errors: %d \n",
 				deletedImages.Metrics.ManifestDeletes, deletedImages.Metrics.ManifestErrors, deletedImages.Metrics.TagDeletes, deletedImages.Metrics.TagDeletes)
 
-			tagsList = dh.GetImages(dhOrg, dhRepo, pageNumber, timeBefore)
+			tagsList = dh.GetImages(dhOrg, dhRepo, pageNumber, timeBefore, pageSize)
 		}
 
 		return nil

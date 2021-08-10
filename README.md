@@ -16,7 +16,8 @@ COMMANDS:
 GLOBAL OPTIONS:
    --username value  
    --password value  
-   --days value      (default: "30")
+   --days value      (default: 30)
+   --pageSize value  (default: 10)
    --dry-run
    --help, -h        show help
 ```
