@@ -100,8 +100,9 @@ func (client *client) DeleteImages(organization string, repository string, diges
 func (client *client) GetImages(organization string, repository string, page int, timeBefore time.Time, pageSize int) (imageList *ImageList) {
 	pageString := strconv.Itoa(page)
 	timeFrom := url.QueryEscape(timeBefore.Format(time.RFC3339))
+	pageSizeStr := strconv.Itoa(pageSize)
 
-	req, err := http.NewRequest("GET", "https://hub.docker.com/v2/namespaces/"+organization+"/repositories/"+repository+"/images?page="+pageString+"&page_size="+string(pageSize)+"&ordering=last_activity&status=inactive&active_from="+timeFrom, nil)
+	req, err := http.NewRequest("GET", "https://hub.docker.com/v2/namespaces/"+organization+"/repositories/"+repository+"/images?page="+pageString+"&page_size="+pageSizeStr+"&ordering=last_activity&status=inactive&active_from="+timeFrom, nil)
 	if err != nil {
 		panic(err)
 	}
